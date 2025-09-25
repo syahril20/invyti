@@ -1,6 +1,5 @@
 "use client";
 
-import { useModal } from "@/hooks/useModal";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "./ui/table";
 
 type Visit = {
