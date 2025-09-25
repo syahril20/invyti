@@ -2,12 +2,19 @@ const BASE_URL = "https://belajar-spring-staging.up.railway.app/api";
 
 export async function getVisits() {
   const PATH = "/v1/users/visit";
-  const res = await fetch(`${BASE_URL}${PATH}`, { cache: "no-store" });
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch visits");
+  try {
+    const res = await fetch(`${BASE_URL}${PATH}`, { cache: "no-store" });
+
+    if (!res.ok) {
+      console.error("API Error:", res.status, res.statusText);
+      return []; // return array kosong kalau gagal
+    }
+
+    const json = await res.json();
+    return json.message?.data || []; // fallback kalau message/data tidak ada
+  } catch (err) {
+    console.error("Fetch failed:", err);
+    return []; // return array kosong kalau exception
   }
-
-  const json = await res.json();
-  return json.message.data; // mengembalikan array visit
 }

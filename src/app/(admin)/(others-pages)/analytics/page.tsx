@@ -11,7 +11,7 @@ export default async function Analytics() {
       <PageBreadcrumb pageTitle="Analytics Page" />
       <div className="space-y-6">
         <ComponentCard title="Analytics">
-          <VisitTable visits={visits} />
+          <VisitTable visits={visits.length ? visits : []} />
         </ComponentCard>
       </div>
     </div>
