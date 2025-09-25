@@ -1,4 +1,4 @@
-const BASE_URL = "https://belajar-spring-staging.up.railway.app/api";
+const BASE_URL = "https://stg.invyti.com/api";
 
 export async function getVisits() {
   const PATH = "/v1/users/visit";
