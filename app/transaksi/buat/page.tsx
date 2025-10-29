@@ -2,8 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Trash2, Plus } from "lucide-react";
-import NotaModal from "@/app/components/NotaModal";
 import * as htmlToImage from "html-to-image";
+import NotaModal from "@/app/components/NotaModal";
 
 export default function Page() {
   const [pelanggan, setPelanggan] = useState({
@@ -16,15 +16,11 @@ export default function Page() {
     { nama_barang: "", qty: 1, harga: 0, total: 0 },
   ]);
 
-  const [transaksi, setTransaksi] = useState({
-    total: 0,
-  });
-
-  const notaRef = useRef<HTMLDivElement>(null);
+  const [transaksi, setTransaksi] = useState({ total: 0 });
   const [notaData, setNotaData] = useState<any>(null);
   const [showNota, setShowNota] = useState(false);
+  const notaRef = useRef<HTMLDivElement>(null);
 
-  // 💰 Hitung total harga barang
   const hitungTotal = (list = barangList) => {
     const totalSemua = list.reduce(
       (acc, item) => acc + item.qty * item.harga,
@@ -33,7 +29,6 @@ export default function Page() {
     setTransaksi({ total: totalSemua });
   };
 
-  // ➕ Tambah barang baru
   const tambahBarang = () => {
     const newList = [
       ...barangList,
@@ -43,14 +38,12 @@ export default function Page() {
     hitungTotal(newList);
   };
 
-  // ❌ Hapus barang
   const hapusBarang = (index: number) => {
     const newList = barangList.filter((_, i) => i !== index);
     setBarangList(newList);
     hitungTotal(newList);
   };
 
-  // 🔄 Handle perubahan data barang
   const handleBarangChange = (
     index: number,
     field: string,
@@ -64,14 +57,14 @@ export default function Page() {
     hitungTotal(newList);
   };
 
-  // 💾 Simpan Transaksi + GET dari DB sebelum tampilkan nota
+  // 💾 Simpan Transaksi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     hitungTotal();
 
     const now = new Date();
     const nomorNota = "MT-" + now.getTime().toString().slice(-6);
-    const tanggal = now.toISOString(); // biar disimpan format ISO di DB
+    const tanggal = now.toISOString();
 
     const payload = {
       pelanggan,
@@ -87,7 +80,6 @@ export default function Page() {
     };
 
     try {
-      // 1️⃣ Simpan ke database
       const res = await fetch("/api/transaksi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,21 +87,18 @@ export default function Page() {
       });
 
       const result = await res.json();
-      if (!result.ok) throw new Error(result.error || "Gagal menyimpan transaksi");
-      console.log("✅ Transaksi tersimpan:", result);
+      if (!result.ok) throw new Error(result.error);
 
-      // 2️⃣ Ambil data lengkap dari DB (berdasarkan ID transaksi)
       const transaksiId = result.data.transaksi.id;
       const fetchRes = await fetch(`/api/transaksi?id=${transaksiId}`);
       const fetchData = await fetchRes.json();
 
-      if (!fetchData.ok) throw new Error(fetchData.error || "Gagal mengambil data transaksi");
+      if (!fetchData.ok) throw new Error(fetchData.error);
 
-      // 3️⃣ Simpan data dari DB ke state & tampilkan nota
       setNotaData(fetchData.data);
       setShowNota(true);
 
-      // 4️⃣ Auto save PNG setelah tampil
+      // Simpan PNG otomatis
       setTimeout(async () => {
         if (notaRef.current) {
           const dataUrl = await htmlToImage.toPng(notaRef.current, {
@@ -125,34 +114,34 @@ export default function Page() {
           link.href = dataUrl;
           link.click();
         }
-      }, 600);
+      }, 500);
     } catch (err) {
-      console.error("❌ Gagal simpan transaksi:", err);
-      alert("Gagal menyimpan transaksi ke database!");
+      console.error("❌ Gagal simpan:", err);
+      alert("Gagal menyimpan transaksi!");
     }
   };
 
   return (
-    <main className="min-h-screen bg-emerald-50 flex flex-col items-center py-10 px-4">
-      <div className="w-full max-w-4xl bg-white p-8 rounded-2xl shadow-md border border-emerald-100">
-        <h1 className="text-3xl font-bold text-center text-emerald-700 mb-10">
+    <main className="min-h-screen bg-emerald-50 flex flex-col items-center py-6 px-3 sm:px-6">
+      <div className="w-full max-w-4xl bg-white p-5 sm:p-8 rounded-2xl shadow-md border border-emerald-100">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center text-emerald-700 mb-8">
           🧾 Form Transaksi Mustari Tani
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* 🧍 Data Pelanggan */}
-          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-emerald-800 mb-5">
+          <section className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
+            <h2 className="text-lg sm:text-xl font-semibold text-emerald-800 mb-4">
               Data Pelanggan
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {[
                 { label: "Nama Pelanggan", key: "nama", required: true },
                 { label: "Alamat", key: "alamat" },
                 { label: "Nomor Telepon", key: "telepon" },
               ].map((field) => (
                 <div className="flex flex-col" key={field.key}>
-                  <label className="text-gray-700 font-medium mb-2">
+                  <label className="text-gray-700 font-medium mb-1 sm:mb-2 text-sm sm:text-base">
                     {field.label}
                   </label>
                   <input
@@ -171,7 +160,7 @@ export default function Page() {
                       })
                     }
                     required={field.required || false}
-                    className="border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-3 rounded-md text-gray-900 outline-none bg-white shadow-sm"
+                    className="border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 sm:p-3 rounded-md text-gray-900 outline-none bg-white shadow-sm w-full text-sm sm:text-base"
                   />
                 </div>
               ))}
@@ -179,15 +168,15 @@ export default function Page() {
           </section>
 
           {/* 📦 Data Barang */}
-          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-semibold text-emerald-800">
+          <section className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-5 gap-3">
+              <h2 className="text-lg sm:text-xl font-semibold text-emerald-800">
                 Data Barang
               </h2>
               <button
                 type="button"
                 onClick={tambahBarang}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md shadow-sm"
+                className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md shadow-sm w-full sm:w-auto"
               >
                 <Plus size={18} /> Tambah Barang
               </button>
@@ -197,10 +186,10 @@ export default function Page() {
               {barangList.map((item, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-white border border-gray-200 p-4 rounded-lg shadow-sm"
+                  className="grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-4 items-end bg-white border border-gray-200 p-3 sm:p-4 rounded-lg shadow-sm"
                 >
-                  <div className="flex flex-col">
-                    <label className="text-gray-700 font-medium mb-1">
+                  <div className="flex flex-col sm:col-span-2">
+                    <label className="text-gray-700 font-medium mb-1 text-sm sm:text-base">
                       Nama Barang
                     </label>
                     <input
@@ -209,51 +198,54 @@ export default function Page() {
                       onChange={(e) =>
                         handleBarangChange(index, "nama_barang", e.target.value)
                       }
-                      className="border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 rounded-md text-gray-900 bg-white shadow-sm outline-none"
+                      className="border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 rounded-md text-gray-900 bg-white shadow-sm outline-none text-sm sm:text-base"
                       required
                     />
                   </div>
+
                   <div className="flex flex-col">
-                    <label className="text-gray-700 font-medium mb-1">
+                    <label className="text-gray-700 font-medium mb-1 text-sm sm:text-base">
                       Qty
                     </label>
                     <input
                       type="number"
-                      value={item.qty}
+                      value={item.qty === 0 ? "" : item.qty}
                       onChange={(e) =>
                         handleBarangChange(index, "qty", e.target.value)
                       }
-                      className="border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 rounded-md text-gray-900 text-center bg-white shadow-sm outline-none"
+                      className="border border-gray-300 text-center focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 rounded-md text-gray-900 shadow-sm outline-none text-sm sm:text-base"
                       min={1}
                     />
                   </div>
                   <div className="flex flex-col">
-                    <label className="text-gray-700 font-medium mb-1">
+                    <label className="text-gray-700 font-medium mb-1 text-sm sm:text-base">
                       Harga (Rp)
                     </label>
                     <input
                       type="number"
-                      value={item.harga}
+                      value={item.harga === 0 ? "" : item.harga}
                       onChange={(e) =>
                         handleBarangChange(index, "harga", e.target.value)
                       }
-                      className="border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 rounded-md text-gray-900 text-right bg-white shadow-sm outline-none"
+                      className="border border-gray-300 text-right focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 p-2 rounded-md text-gray-900 shadow-sm outline-none text-sm sm:text-base"
                       min={0}
                     />
                   </div>
+
                   <div className="flex flex-col">
-                    <label className="text-gray-700 font-medium mb-1">
+                    <label className="text-gray-700 font-medium mb-1 text-sm sm:text-base">
                       Subtotal
                     </label>
-                    <div className="p-2 border border-gray-300 bg-gray-50 rounded-md text-right font-semibold text-emerald-700 shadow-sm">
+                    <div className="p-2 border border-gray-300 bg-gray-50 rounded-md text-right font-semibold text-emerald-700 shadow-sm text-sm sm:text-base">
                       Rp {(item.qty * item.harga).toLocaleString("id-ID")}
                     </div>
                   </div>
-                  <div className="flex justify-center">
+
+                  <div className="flex justify-end sm:justify-center">
                     <button
                       type="button"
                       onClick={() => hapusBarang(index)}
-                      className="bg-red-500 hover:bg-red-600 text-white rounded-md p-2 mt-6 shadow-sm"
+                      className="bg-red-500 hover:bg-red-600 text-white rounded-md p-2 sm:p-2.5 mt-3 sm:mt-6 shadow-sm w-9 sm:w-auto"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -264,26 +256,26 @@ export default function Page() {
           </section>
 
           {/* 💰 Ringkasan */}
-          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-emerald-800 mb-3">
+          <section className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
+            <h2 className="text-lg sm:text-xl font-semibold text-emerald-800 mb-3">
               Ringkasan Transaksi
             </h2>
             <div className="text-right">
-              <p className="text-lg text-gray-700">
+              <p className="text-base sm:text-lg text-gray-700">
                 Total Barang:{" "}
                 <span className="font-semibold">{barangList.length}</span>
               </p>
-              <p className="text-3xl font-bold text-emerald-700 mt-2">
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-700 mt-1 sm:mt-2">
                 Total: Rp {transaksi.total.toLocaleString("id-ID")}
               </p>
             </div>
           </section>
 
           {/* 🔘 Submit */}
-          <div className="text-center pt-4">
+          <div className="text-center pt-2">
             <button
               type="submit"
-              className="bg-emerald-700 hover:bg-emerald-800 text-white px-10 py-3 rounded-lg font-semibold text-lg shadow-md transition-all"
+              className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white px-6 sm:px-10 py-3 rounded-lg font-semibold text-base sm:text-lg shadow-md transition-all"
             >
               Simpan Transaksi
             </button>
@@ -291,7 +283,6 @@ export default function Page() {
         </form>
       </div>
 
-      {/* 🧾 Modal Nota */}
       {showNota && notaData && (
         <NotaModal notaData={notaData} onClose={() => setShowNota(false)} />
       )}
