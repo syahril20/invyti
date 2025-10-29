@@ -1,76 +1,50 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/app/lib/prisma";
-import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
-
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    const { pelanggan, transaksi, barang } = body;
+    const prisma = await getPrisma();
+    const body = await req.json();
 
-    if (!pelanggan?.nama || !barang?.length) {
-      return NextResponse.json(
-        { ok: false, error: "Data pelanggan atau barang tidak lengkap" },
-        { status: 400 }
-      );
-    }
+    const { pelanggan, barang, transaksi } = body;
 
-    // 🔹 Cari atau buat pelanggan
-    let pelangganData = await prisma.pelanggan.findFirst({
-      where: {
+    // 🧍 Simpan pelanggan
+    const pelangganBaru = await prisma.pelanggan.create({
+      data: {
         nama: pelanggan.nama,
+        alamat: pelanggan.alamat,
         telepon: pelanggan.telepon,
       },
     });
 
-    if (!pelangganData) {
-      pelangganData = await prisma.pelanggan.create({
-        data: {
-          nama: pelanggan.nama,
-          alamat: pelanggan.alamat,
-          telepon: pelanggan.telepon,
-        },
-      });
-    }
-
-    // 🔹 Simpan transaksi & barang dalam satu transaksi Prisma (atomic)
-    const result = await prisma.$transaction(async (tx) => {
-      const transaksiData = await tx.transaksi.create({
-        data: {
-          id_pelanggan: pelangganData.id,
-          total: transaksi.total,
-        },
-      });
-
-      // Debug log: cek isi barang
-      console.log("Barang diterima:", barang);
-
-      // Simpan semua barang terkait transaksi ini
-      const barangData = await Promise.all(
-        barang.map((b: any) =>
-          tx.barang.create({
-            data: {
-              nama_barang: b.nama_barang,
-              qty: b.qty,
-              harga: b.harga,
-              total: b.total,
-              id_transaksi: transaksiData.id,
-            },
-          })
-        )
-      );
-
-      return { pelangganData, transaksiData, barangData };
+    // 💾 Simpan transaksi
+    const transaksiBaru = await prisma.transaksi.create({
+      data: {
+        id_pelanggan: pelangganBaru.id,
+        total: transaksi.total,
+      },
     });
+
+    // 📦 Simpan daftar barang
+    const barangData = barang.map((b: any) => ({
+      nama_barang: b.nama_barang,
+      qty: b.qty,
+      harga: b.harga,
+      total: b.total,
+      id_transaksi: transaksiBaru.id,
+    }));
+    await prisma.barang.createMany({ data: barangData });
 
     return NextResponse.json({
       ok: true,
-      message: "Transaksi dan barang berhasil disimpan!",
-      data: result,
+      message: "Transaksi berhasil disimpan!",
+      data: {
+        pelanggan: pelangganBaru,
+        transaksi: transaksiBaru,
+      },
     });
   } catch (err) {
-    console.error("❌ Error saving transaksi:", err);
+    console.error("❌ POST Error:", err);
     return NextResponse.json(
       { ok: false, error: (err as Error).message },
       { status: 500 }
@@ -83,27 +57,24 @@ export async function GET(request: Request) {
   const id = searchParams.get("id");
 
   try {
+    const prisma = await getPrisma();
+
     if (id) {
-      // 🔹 GET DETAIL TRANSAKSI
+      // 🔹 Ambil detail transaksi berdasarkan ID
       const data = await prisma.transaksi.findUnique({
         where: { id },
-        include: {
-          pelanggan: true,
-          barang: true,
-        },
+        include: { pelanggan: true, barang: true },
       });
-
       if (!data) {
         return NextResponse.json(
           { ok: false, error: "Transaksi tidak ditemukan" },
           { status: 404 }
         );
       }
-
       return NextResponse.json({ ok: true, data });
     }
 
-    // 🔹 GET SEMUA TRANSAKSI
+    // 🔹 Ambil semua transaksi
     const data = await prisma.transaksi.findMany({
       orderBy: { created_at: "desc" },
       include: { pelanggan: true },
@@ -111,7 +82,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, data });
   } catch (err) {
-    console.error("❌ Error saat GET transaksi:", err);
+    console.error("❌ GET Error:", err);
     return NextResponse.json(
       { ok: false, error: (err as Error).message },
       { status: 500 }

@@ -2,8 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Trash2, Plus } from "lucide-react";
-import * as htmlToImage from "html-to-image";
 import NotaModal from "@/app/components/NotaModal";
+import * as htmlToImage from "html-to-image";
 
 export default function Page() {
   const [pelanggan, setPelanggan] = useState({
@@ -64,18 +64,14 @@ export default function Page() {
     hitungTotal(newList);
   };
 
-  // 💾 Simpan Transaksi
+  // 💾 Simpan Transaksi + GET dari DB sebelum tampilkan nota
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     hitungTotal();
 
     const now = new Date();
     const nomorNota = "MT-" + now.getTime().toString().slice(-6);
-    const tanggal = now.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
+    const tanggal = now.toISOString(); // biar disimpan format ISO di DB
 
     const payload = {
       pelanggan,
@@ -90,45 +86,50 @@ export default function Page() {
       },
     };
 
-    setNotaData(payload);
-    setShowNota(true);
+    try {
+      // 1️⃣ Simpan ke database
+      const res = await fetch("/api/transaksi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    // Tunggu tampilan nota muncul dulu
-    setTimeout(async () => {
-      // 📸 Generate PNG nota
-      if (notaRef.current) {
-        const dataUrl = await htmlToImage.toPng(notaRef.current, {
-          quality: 1,
-          pixelRatio: 2,
-        });
+      const result = await res.json();
+      if (!result.ok) throw new Error(result.error || "Gagal menyimpan transaksi");
+      console.log("✅ Transaksi tersimpan:", result);
 
-        const link = document.createElement("a");
-        const namaFile =
-          `${payload.transaksi.nomorNota}_${payload.pelanggan.nama}.png`.replace(
-            /\s+/g,
-            "_"
-          );
-        link.download = namaFile;
-        link.href = dataUrl;
-        link.click();
-      }
+      // 2️⃣ Ambil data lengkap dari DB (berdasarkan ID transaksi)
+      const transaksiId = result.data.transaksi.id;
+      const fetchRes = await fetch(`/api/transaksi?id=${transaksiId}`);
+      const fetchData = await fetchRes.json();
 
-      // 🗄️ Simpan ke database
-      try {
-        const res = await fetch("/api/transaksi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+      if (!fetchData.ok) throw new Error(fetchData.error || "Gagal mengambil data transaksi");
 
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error);
-        console.log("✅ Transaksi tersimpan:", result);
-      } catch (err) {
-        console.error("Gagal simpan ke database:", err);
-        alert("❌ Gagal menyimpan transaksi ke database!");
-      }
-    }, 500);
+      // 3️⃣ Simpan data dari DB ke state & tampilkan nota
+      setNotaData(fetchData.data);
+      setShowNota(true);
+
+      // 4️⃣ Auto save PNG setelah tampil
+      setTimeout(async () => {
+        if (notaRef.current) {
+          const dataUrl = await htmlToImage.toPng(notaRef.current, {
+            quality: 1,
+            pixelRatio: 2,
+          });
+
+          const link = document.createElement("a");
+          const namaFile = `${fetchData.data.nota_no || "nota"}_${
+            fetchData.data.pelanggan?.nama || "pelanggan"
+          }.png`.replace(/\s+/g, "_");
+          link.download = namaFile;
+          link.href = dataUrl;
+          link.click();
+        }
+      }, 600);
+    } catch (err) {
+      console.error("❌ Gagal simpan transaksi:", err);
+      alert("Gagal menyimpan transaksi ke database!");
+    }
   };
 
   return (

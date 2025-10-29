@@ -19,9 +19,9 @@ export default function NotaModal({
         quality: 1,
         pixelRatio: 2,
       });
-      const namaFile = `${notaData.transaksi?.nomorNota || notaData.nota_no}_${
-        notaData.pelanggan?.nama || "nota"
-      }.png`.replace(/\s+/g, "_");
+      const namaFile = `${
+        notaData.nota_no || notaData.transaksi?.nota_no || "nota"
+      }_${notaData.pelanggan?.nama || "pelanggan"}.png`.replace(/\s+/g, "_");
       const link = document.createElement("a");
       link.download = namaFile;
       link.href = dataUrl;
@@ -31,8 +31,7 @@ export default function NotaModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-2xl relative font-poppins">
-        {/* Tombol Close */}
+      <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-xl relative">
         <button
           onClick={onClose}
           className="absolute top-2 right-3 text-gray-500 hover:text-gray-700"
@@ -40,54 +39,66 @@ export default function NotaModal({
           ✕
         </button>
 
-        <div ref={notaRef}>
-          {/* Header Nota */}
+        <div
+          ref={notaRef}
+          className="bg-white rounded-xl border border-gray-300 shadow-md mx-auto"
+          style={{
+            backgroundColor: "#fff",
+            width: "100%",
+            maxWidth: "420px",
+            padding: "30px 28px 40px", // atas, kanan-kiri, bawah
+            margin: "0 auto", // hilangkan margin atas-bawah berlebih
+          }}
+        >
+          {/* Header */}
           <div className="text-center border-b pb-3 mb-3">
             <img
               src="/logo.png"
               alt="Logo Mustari Tani"
               className="mx-auto mb-2 w-30 h-30 object-contain"
             />
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-700">
               Jl. Terusan Sersan Bajuri, Cihideung, Kec. Parongpong, Kabupaten
-              Bandung Barat, Jawa Barat 40559 — Telp: 89656190041
+              Bandung Barat, Jawa Barat 40559 — Telp: 0813-1239-9873
             </div>
           </div>
 
-          {/* Info Transaksi */}
+          {/* Info */}
           <div className="text-sm text-gray-800 space-y-1 mb-3">
-            {[
-              ["No. Nota", notaData.transaksi?.nomorNota || notaData.nota_no],
-              [
-                "Tanggal",
-                new Date(
-                  notaData.transaksi?.tanggal || notaData.created_at
-                ).toLocaleDateString("id-ID"),
-              ],
-              ["Pelanggan", notaData.pelanggan?.nama],
-              ["Alamat", notaData.pelanggan?.alamat || "-"],
-              ["Telepon", notaData.pelanggan?.telepon],
-            ].map(([label, value], i) => (
-              <div
-                key={i}
-                className="flex justify-between gap-2 items-start leading-snug"
-              >
-                <span className="font-medium text-gray-700 flex-shrink-0">
-                  {label}:
-                </span>
-                <span className="text-right text-gray-900 break-words whitespace-normal max-w-[65%]">
-                  {value}
-                </span>
-              </div>
-            ))}
+            <div className="flex justify-between gap-2">
+              <span>No. Nota:</span>
+              <span className="font-semibold text-gray-900">
+                {notaData.nota_no || notaData.transaksi?.nota_no}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>Tanggal:</span>
+              <span className="text-gray-900">
+                {new Date(notaData.created_at).toLocaleDateString("id-ID")}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>Pelanggan:</span>
+              <span className="text-gray-900">{notaData.pelanggan?.nama}</span>
+            </div>
+            <div className="flex justify-between gap-2 items-start">
+              <span>Alamat:</span>
+              <span className="text-gray-900 text-right break-words max-w-[65%]">
+                {notaData.pelanggan?.alamat || "-"}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>Telepon:</span>
+              <span className="text-gray-900">
+                {notaData.pelanggan?.telepon}
+              </span>
+            </div>
           </div>
 
-          <hr className="my-2 border-gray-300" />
-
-          {/* Tabel Barang */}
-          <table className="w-full text-sm border-b text-gray-900 table-fixed font-['Roboto_Mono']">
+          {/* Barang */}
+          <table className="w-full text-sm border-b text-gray-900 table-fixed">
             <thead>
-              <tr className="border-b border-gray-300 font-semibold text-gray-800">
+              <tr className="border-b border-gray-300 font-semibold">
                 <th className="text-left w-[8%]">No</th>
                 <th className="text-left w-[45%]">Barang</th>
                 <th className="text-center w-[10%]">Qty</th>
@@ -97,14 +108,9 @@ export default function NotaModal({
             </thead>
             <tbody>
               {(notaData.barang || []).map((b: any, i: number) => (
-                <tr
-                  key={i}
-                  className="border-b border-dashed last:border-b-0 text-gray-800 align-top"
-                >
+                <tr key={i} className="border-b border-dashed last:border-b-0">
                   <td className="py-1">{i + 1}</td>
-                  <td className="break-words whitespace-normal py-1 pr-2 font-poppins">
-                    {b.nama_barang}
-                  </td>
+                  <td className="break-words py-1 pr-2">{b.nama_barang}</td>
                   <td className="text-center py-1">{b.qty}</td>
                   <td className="text-center py-1">
                     {b.harga.toLocaleString("id-ID")}
@@ -118,24 +124,18 @@ export default function NotaModal({
           </table>
 
           {/* Total */}
-          <div className="text-right mt-3 font-semibold text-lg text-emerald-700 border-t pt-2 font-['Roboto_Mono']">
-            Total: Rp{" "}
-            {(notaData.transaksi?.total || notaData.total)?.toLocaleString(
-              "id-ID"
-            )}
+          <div className="text-right mt-3 font-semibold text-lg text-emerald-700 border-t pt-2">
+            Total: Rp {notaData.total?.toLocaleString("id-ID")}
           </div>
 
-          {/* Footer */}
-          <div className="text-center text-gray-700 text-xs mt-4 border-t pt-3 italic">
-            Terima kasih telah berbelanja di{" "}
-            <b className="text-emerald-700">Mustari Tani</b>
+          <div className="text-center text-gray-700 text-xs mt-5 border-t pt-3">
+            Terima kasih telah berbelanja di <b>Mustari Tani</b> 🌾
           </div>
         </div>
 
-        {/* Tombol Save PNG */}
         <button
           onClick={handleSavePng}
-          className="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md flex items-center justify-center gap-2 shadow-md transition-all"
+          className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md flex items-center justify-center gap-2"
         >
           <Download size={18} /> Simpan Nota sebagai PNG
         </button>
