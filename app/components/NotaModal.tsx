@@ -18,6 +18,11 @@ export default function NotaModal({
       const dataUrl = await htmlToImage.toPng(notaRef.current, {
         quality: 1,
         pixelRatio: 2,
+        style: {
+          paddingTop: "40px",
+          paddingBottom: "60px",
+          backgroundColor: "#ffffff",
+        },
       });
       const namaFile = `${
         notaData.nota_no || notaData.transaksi?.nota_no || "nota"
@@ -39,15 +44,17 @@ export default function NotaModal({
           ✕
         </button>
 
+        {/* Wrapper tambahan untuk area aman export */}
         <div
           ref={notaRef}
           className="bg-white rounded-xl border border-gray-300 shadow-md mx-auto"
           style={{
-            backgroundColor: "#fff",
+            backgroundColor: "#ffffff",
             width: "100%",
             maxWidth: "420px",
-            padding: "30px 28px 40px", // atas, kanan-kiri, bawah
-            margin: "0 auto", // hilangkan margin atas-bawah berlebih
+            padding: "40px 28px 60px", // extra bawah biar lega saat disave
+            margin: "20px auto",
+            boxSizing: "border-box",
           }}
         >
           {/* Header */}
