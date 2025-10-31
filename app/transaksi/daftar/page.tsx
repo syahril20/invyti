@@ -114,6 +114,7 @@ export default function DaftarTransaksiPage() {
                 <th className="p-3 text-left w-[50px]">No</th>
                 <th className="p-3 text-left">Nama Pelanggan</th>
                 <th className="p-3 text-center">Tanggal</th>
+                <th className="p-3 text-center">Nota No</th>
                 <th className="p-3 text-right">Total (Rp)</th>
                 <th className="p-3 text-center w-[100px]">Aksi</th>
               </tr>
@@ -130,6 +131,9 @@ export default function DaftarTransaksiPage() {
                   </td>
                   <td className="p-3 text-center text-slate-700">
                     {new Date(trx.created_at).toLocaleDateString("id-ID")}
+                  </td>
+                  <td className="p-3 text-center text-slate-700">
+                    {trx.nota_no}
                   </td>
                   <td className="p-3 text-right text-emerald-700 font-semibold">
                     {trx.total.toLocaleString("id-ID")}
