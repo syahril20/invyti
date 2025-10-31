@@ -27,18 +27,13 @@ export default function NotaModal({
 
       node.style.width = originalWidth;
 
-      // Kirim dataUrl (base64) ke API Next.js
-      await fetch("/api/send-nota", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          base64: dataUrl, // kirim base64 dari html-to-image
-          telepon: notaData.pelanggan?.telepon, // kirim nomor pelanggan
-          nama: notaData.pelanggan?.nama,
-        }),
-      });
-
-      alert("✅ Nota berhasil dikirim ke WhatsApp pelanggan!");
+      const namaFile = `${
+        notaData.nota_no || notaData.transaksi?.nota_no || "nota"
+      }_${notaData.pelanggan?.nama || "pelanggan"}.png`.replace(/\s+/g, "_");
+      const link = document.createElement("a");
+      link.download = namaFile;
+      link.href = dataUrl;
+      link.click();
     }
   };
 
