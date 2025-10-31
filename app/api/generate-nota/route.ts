@@ -16,7 +16,9 @@ function isRateLimited(ip: string): boolean {
     return false;
   }
 
-  const timestamps = rateLimitMap.get(ip)!.filter((t) => t > windowStart);
+  const timestamps = rateLimitMap
+    .get(ip)!
+    .filter((t: number) => t > windowStart);
   timestamps.push(now);
   rateLimitMap.set(ip, timestamps);
 
@@ -282,7 +284,7 @@ export async function POST(req: Request) {
 
     await browser.close();
 
-    const base64 = buffer.toString("base64");
+    const base64 = Buffer.from(buffer).toString("base64");
     return NextResponse.json({ base64 });
   } catch (err: any) {
     console.error("❌ Error generate nota:", err.message);
