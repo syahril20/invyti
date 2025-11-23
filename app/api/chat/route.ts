@@ -12,39 +12,33 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { action, prompt, messages, source, name, scripts, description, path } = body;
+  const { action, messages, prompt, name, source, scripts, description, path } = body;
 
-  let finalPrompt = "";
-
-  // ============================================================
-  // 1) UNIVERSAL MODE WITH SESSION MEMORY
-  // ============================================================
+  // ==============================================================
+  // MODE CHAT (session-based)
+  // ==============================================================
   if (action === "prompt") {
     if (messages && Array.isArray(messages)) {
-      return await callChatWithMessages(messages);
+      return await callChat(messages);
     }
 
-    // fallback old mode
-    finalPrompt = `
-Kamu adalah asisten AI Roblox. Jawab dalam JSON VALID.
-User prompt:
-"${prompt}"
-
-Format:
-{
-  "response": "jawaban"
-}
-`;
+    // fallback legacy
+    return await callChat([
+      { role: "system", content: "You are a Lua/Roblox assistant. Only output JSON." },
+      { role: "user", content: prompt }
+    ]);
   }
 
-  // ============================================================
-  // 2) ANALYZE SCRIPT
-  // ============================================================
-  else if (action === "analyze_script") {
-    finalPrompt = `
-⚠ WAJIB JSON VALID.
-
-Perbaiki script berikut jika ada error:
+  // ==============================================================  
+  // ANALYZE SCRIPT
+  // ==============================================================
+  if (action === "analyze_script") {
+    return await callChat([
+      { role: "system", content: "You are a Lua analyzer. Output JSON only." },
+      {
+        role: "user",
+        content: `
+Perbaiki script berikut jika perlu. Output JSON VALID:
 
 Nama: ${name}
 Path: ${path}
@@ -54,77 +48,66 @@ ${source}
 
 Format:
 {
-  "updated_source": "print(\\"...\")",
+  "updated_source": "...",
   "message": "..."
 }
-`;
+`
+      }
+    ]);
   }
 
-  // ============================================================
-  // 3) SCAN FOLDER
-  // ============================================================
-  else if (action === "scan_folder") {
-    finalPrompt = `
-⚠ WAJIB JSON VALID.
+  // ==============================================================  
+  // SCAN FOLDER
+  // ==============================================================
+  if (action === "scan_folder") {
+    return await callChat([
+      {
+        role: "user",
+        content: `
+Scan kumpulan script untuk potensi error.
+Jumlah script: ${scripts?.length}
 
-Scan kumpulan script berikut dan berikan potensi error.
-
-Jumlah file: ${scripts?.length}
-
-Format:
+Format JSON:
 {
   "message": "...",
   "suggestions": "..."
 }
-`;
+`
+      }
+    ]);
   }
 
-  // ============================================================
-  // 4) CREATE FILE
-  // ============================================================
-  else if (action === "create_file") {
-    finalPrompt = `
-⚠ JSON VALID SAJA.
+  // ==============================================================  
+  // CREATE FILE
+  // ==============================================================
+  if (action === "create_file") {
+    return await callChat([
+      {
+        role: "user",
+        content: `
+Buatkan script ROBLOX dari deskripsi berikut.
+Output JSON VALID.
 
-Buatkan script ROBLOX sesuai deskripsi:
-
+Deskripsi:
 "${description}"
 
 Format:
 {
-  "generated_source": "print(\\"test\\")"
+  "generated_source": "..."
 }
-`;
+`
+      }
+    ]);
   }
 
-  else {
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  }
-
-  // ============================================================
-  // CLASSIC PROMPT MODE
-  // ============================================================
-  try {
-    const data = await openaiClassic(finalPrompt);
-    return NextResponse.json(data);
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Server error", details: err },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
 
-//////////////////////////////////////////////////////////////
-// 🔥 FUNCTION 1 — Universal Chat Mode (SESSION MEMORY)
-//////////////////////////////////////////////////////////////
-async function callChatWithMessages(messages: any[]) {
+///////////////////////////////////////////////////////////////
+// 🔥 CHAT HANDLER — ALWAYS RETURNS JSON VALID
+///////////////////////////////////////////////////////////////
+async function callChat(messagesArray: any[]) {
   try {
-    const formatted = messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -136,7 +119,7 @@ async function callChatWithMessages(messages: any[]) {
         temperature: 0,
         max_tokens: 2000,
         response_format: { type: "json_object" },
-        messages: formatted,
+        messages: messagesArray
       }),
     });
 
@@ -144,43 +127,15 @@ async function callChatWithMessages(messages: any[]) {
     const raw = json?.choices?.[0]?.message?.content;
 
     try {
-      return JSON.parse(raw);
+      return NextResponse.json(JSON.parse(raw));
     } catch {
-      return { response: raw };
+      return NextResponse.json({ response: raw });
     }
+
   } catch (err) {
-    return NextResponse.json(
-      { error: "GPT error", details: err },
-      { status: 500 }
-    );
-  }
-}
-
-//////////////////////////////////////////////////////////////
-// 🔥 FUNCTION 2 — Fallback Classic Prompt Mode
-//////////////////////////////////////////////////////////////
-async function openaiClassic(prompt: string) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      temperature: 0,
-      max_tokens: 2000,
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-
-  const data = await res.json();
-  const raw = data?.choices?.[0]?.message?.content;
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return { response: raw };
+    return NextResponse.json({
+      error: "Server error",
+      details: err
+    }, { status: 500 });
   }
 }
