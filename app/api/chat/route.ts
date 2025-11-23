@@ -7,41 +7,44 @@ const AUTH_TOKEN = process.env.AUTH_TOKEN || "supersecret123";
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization");
-
   if (!auth || auth !== `Bearer ${AUTH_TOKEN}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await req.json();
-  const { action, prompt, source, name, scripts, description, path } = body;
+  const { action, prompt, messages, source, name, scripts, description, path } = body;
 
   let finalPrompt = "";
 
   // ============================================================
-  // UNIVERSAL MODE — bebas tanya apa saja
+  // 1) UNIVERSAL MODE WITH SESSION MEMORY
   // ============================================================
   if (action === "prompt") {
+    if (messages && Array.isArray(messages)) {
+      return await callChatWithMessages(messages);
+    }
+
+    // fallback old mode
     finalPrompt = `
-Kamu adalah asisten AI untuk proyek Roblox. Jawab dalam format JSON VALID.
+Kamu adalah asisten AI Roblox. Jawab dalam JSON VALID.
 User prompt:
 "${prompt}"
 
-Format balasan:
+Format:
 {
-  "response": "jawaban apapun di sini"
+  "response": "jawaban"
 }
 `;
   }
 
   // ============================================================
-  // ORIGINAL: ANALYZE SCRIPT
+  // 2) ANALYZE SCRIPT
   // ============================================================
   else if (action === "analyze_script") {
     finalPrompt = `
-⚠ WAJIB balas hanya dalam JSON VALID.
-⚠ TANPA teks tambahan, TANPA markdown.
+⚠ WAJIB JSON VALID.
 
-Perbaiki script Roblox berikut jika perlu:
+Perbaiki script berikut jika ada error:
 
 Nama: ${name}
 Path: ${path}
@@ -49,66 +52,80 @@ Path: ${path}
 Source:
 ${source}
 
-Format balasan:
+Format:
 {
-  "updated_source": "print(\\"...\\" )",
+  "updated_source": "print(\\"...\")",
   "message": "..."
 }
 `;
   }
 
   // ============================================================
-  // ORIGINAL: SCAN FOLDER
+  // 3) SCAN FOLDER
   // ============================================================
   else if (action === "scan_folder") {
     finalPrompt = `
-⚠ WAJIB balas dalam JSON VALID.
+⚠ WAJIB JSON VALID.
 
-Ini kumpulan script Roblox.
-Berikan ringkasan dan potensi error.
+Scan kumpulan script berikut dan berikan potensi error.
 
-Format balasan:
+Jumlah file: ${scripts?.length}
+
+Format:
 {
   "message": "...",
   "suggestions": "..."
 }
-
-Jumlah script: ${scripts?.length}
-Contoh nama script: ${scripts?.[0]?.name}
 `;
   }
 
   // ============================================================
-  // ORIGINAL: CREATE FILE
+  // 4) CREATE FILE
   // ============================================================
   else if (action === "create_file") {
     finalPrompt = `
-⚠ WAJIB balas hanya dalam JSON VALID.
-⚠ TANPA markdown.
+⚠ JSON VALID SAJA.
 
-Buatkan 1 script Roblox sesuai deskripsi berikut:
+Buatkan script ROBLOX sesuai deskripsi:
 
 "${description}"
 
-Format balasan:
+Format:
 {
-  "generated_source": "print(\\"Hello\\")"
+  "generated_source": "print(\\"test\\")"
 }
 `;
   }
 
-  // ============================================================
-  // UNKNOWN ACTION
-  // ============================================================
   else {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
 
   // ============================================================
-  // SEND TO OPENAI
+  // CLASSIC PROMPT MODE
   // ============================================================
   try {
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const data = await openaiClassic(finalPrompt);
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Server error", details: err },
+      { status: 500 }
+    );
+  }
+}
+
+//////////////////////////////////////////////////////////////
+// 🔥 FUNCTION 1 — Universal Chat Mode (SESSION MEMORY)
+//////////////////////////////////////////////////////////////
+async function callChatWithMessages(messages: any[]) {
+  try {
+    const formatted = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
@@ -116,36 +133,54 @@ Format balasan:
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        max_tokens: 2000,
         temperature: 0,
+        max_tokens: 2000,
         response_format: { type: "json_object" },
-        messages: [{ role: "user", content: finalPrompt }],
+        messages: formatted,
       }),
     });
 
-    const data = await openaiRes.json();
-    const raw = data?.choices?.[0]?.message?.content;
-
-    if (!raw) {
-      return NextResponse.json({
-        error: "Empty response from OpenAI",
-        openaiRaw: data,
-      });
-    }
+    const json = await res.json();
+    const raw = json?.choices?.[0]?.message?.content;
 
     try {
-      const json = JSON.parse(raw);
-      return NextResponse.json(json);
+      return JSON.parse(raw);
     } catch {
-      return NextResponse.json({
-        error: "JSON parse error",
-        rawResponse: raw,
-      });
+      return { response: raw };
     }
   } catch (err) {
     return NextResponse.json(
-      { error: "Server error", details: err },
+      { error: "GPT error", details: err },
       { status: 500 }
     );
+  }
+}
+
+//////////////////////////////////////////////////////////////
+// 🔥 FUNCTION 2 — Fallback Classic Prompt Mode
+//////////////////////////////////////////////////////////////
+async function openaiClassic(prompt: string) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      max_tokens: 2000,
+      response_format: { type: "json_object" },
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  const data = await res.json();
+  const raw = data?.choices?.[0]?.message?.content;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { response: raw };
   }
 }
