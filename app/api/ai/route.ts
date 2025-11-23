@@ -5,6 +5,12 @@ export const runtime = "edge";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || "supersecret123";
 
+// patch type globalThis to allow dynamic memory
+declare global {
+  // eslint-disable-next-line no-var
+  var __UNIFIED_AI_MEMORY__: Record<string, any> | undefined;
+}
+
 const memory =
   globalThis.__UNIFIED_AI_MEMORY__ || (globalThis.__UNIFIED_AI_MEMORY__ = {});
 
