@@ -5,7 +5,6 @@ export const runtime = "edge";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || "supersecret123";
 
-// ====== MEMORY FOR UNIFIED AI =======
 const memory =
   // @ts-ignore
   globalThis.__UNIFIED_AI_MEMORY__ || (globalThis.__UNIFIED_AI_MEMORY__ = {});
@@ -18,8 +17,7 @@ function getHistory(userId: string) {
 function pushHistory(userId: string, role: "user" | "assistant", content: string) {
   const list = getHistory(userId);
   list.push({ role, content });
-
-  if (list.length > 40) list.shift();
+  if (list.length > 60) list.shift();
 }
 
 export async function POST(req: NextRequest) {
@@ -32,46 +30,48 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { message, source, description, scripts, userId = "default" } = body;
 
-  if (!message) {
-    return NextResponse.json({ error: "Message required" }, { status: 400 });
+  if (!message && !description) {
+    return NextResponse.json({ error: "Message or description required" }, { status: 400 });
   }
 
+  // Build system prompt
   const systemPrompt = `
-Kamu adalah AI khusus untuk Roblox development.
-Bayangkan kamu adalah asisten developer Roblox yang sangat pintar.
-Kamu membantu user membuat/memperbaiki/menganalisa project Roblox
+You are a specialized AI for Roblox development. Always respond with valid JSON.
+Supported modes: chat, analyze, autoclass, fix, generate.
+If scripts are provided, analyze them and return fixes if needed in "fixes" array.
+When returning files, include: name, path, type, source.
+When returning fixes, include: name, path, old_source, fixed_source, reason.
 
-Kamu WAJIB melakukan hal berikut secara otomatis:
-- Deteksi maksud user (auto-intent).
-- Jika hanya tanya biasa → jawaban biasa.
-- Jika user ingin generate sistem/new feature → lakukan auto-class.
-- Jika user memberi code → lakukan analyze & auto-fix.
-- Jika user bilang ada error → perbaiki berdasarkan memori.
-- Jika perlu file baru → buat list file.
-- Jika user melanjutkan diskusi → gunakan entire history.
-
-Format jawaban WAJIB JSON valid:
-
+Example output JSON:
 {
-  "mode": "chat | analyze | autoclass | fix | generate",
-  "message": "penjelasan ke user",
-  "files": [
-    {
-      "name": "NamaFile",
-      "path": "e.g. StarterPlayerScripts",
-      "type": "LocalScript / Script / ModuleScript / ScreenGui / RemoteEvent",
-      "source": "kode (bisa kosong jika event)"
-    }
-  ]
+  "mode": "autoclass",
+  "message": "...",
+  "files": [...],
+  "fixes": [...]
 }
 
-Jika tidak ada file → files: [].
-WAJIB: JSON VALID.
+Make sure JSON is parseable.
 `;
 
-  // Save user message
-  pushHistory(userId, "user", message);
+  // Save user message (for history)
+  const userMsg = message || description || "request";
+  pushHistory(userId, "user", userMsg);
 
+  // If scripts are provided, add an additional user message with their content
+  const messages = [
+    { role: "system", content: systemPrompt },
+    ...getHistory(userId)
+  ];
+
+  if (Array.isArray(scripts) && scripts.length > 0) {
+    // include scripts in manageable chunks
+    const scriptsJson = JSON.stringify(scripts.map(s => ({ name: s.name, path: s.path, class: s.class, source: s.source })));
+    // if huge, truncate
+    const trimmed = scriptsJson.length > 12000 ? scriptsJson.slice(0, 12000) + "...(TRUNCATED)" : scriptsJson;
+    messages.push({ role: "user", content: "PROJECT_SCRIPTS_JSON: " + trimmed });
+  }
+
+  // Call OpenAI
   const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -80,23 +80,28 @@ WAJIB: JSON VALID.
     },
     body: JSON.stringify({
       model: "gpt-4.1-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...getHistory(userId)
-      ]
+      messages
     })
   });
 
   const data = await openaiRes.json();
   const content = data?.choices?.[0]?.message?.content || "{}";
 
-  // Save AI reply to history
+  // Save assistant reply into history
   pushHistory(userId, "assistant", content);
 
+  // Try to parse JSON
   try {
     const parsed = JSON.parse(content);
     return NextResponse.json(parsed);
-  } catch {
+  } catch (err) {
+    // fallback: try to extract JSON block from content
+    const maybe = content.match(/\{[\s\S]*\}$/m);
+    if (maybe) {
+      try {
+        return NextResponse.json(JSON.parse(maybe[0]));
+      } catch {}
+    }
     return NextResponse.json({
       error: "Invalid JSON returned from AI",
       raw: content
