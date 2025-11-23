@@ -90,6 +90,36 @@ RULES:
 
 DO NOT RETURN ANYTHING OUTSIDE JSON.
 NO MARKDOWN, NO \`\`\`, NO ENGLISH UNLESS WRITTEN INSIDE JSON.
+
+UI RULES (IMPORTANT):
+- Do NOT create UI objects directly in files[].
+- NO ScreenGui, NO TextButton, NO Frame, NO Instance.new() objects returned as files.
+
+INSTEAD:
+- Always create a Script or LocalScript that generates UI dynamically using Instance.new inside the script.
+
+EXAMPLE:
+files: [
+  {
+    "name": "CreateTeleportButton",
+    "type": "LocalScript",
+    "path": "StarterPlayerScripts",
+    "source": "
+      local gui = Instance.new('ScreenGui', game.Players.LocalPlayer:WaitForChild('PlayerGui'))
+      gui.Name = 'TeleportUI'
+
+      local btn = Instance.new('TextButton', gui)
+      btn.Size = UDim2.new(0, 200, 0, 50)
+      btn.Text = 'Teleport'
+      btn.Position = UDim2.new(0.5, -100, 0.8, -25)
+
+      btn.MouseButton1Click:Connect(function()
+         print('Teleport clicked')
+      end)
+    "
+  }
+]
+
 `;
 
   // ===== BUILD MESSAGES =====
