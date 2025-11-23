@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // WAJIB untuk OpenAI di App Router
+export const runtime = "nodejs";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || "supersecret123";
@@ -17,67 +17,83 @@ export async function POST(req: NextRequest) {
 
   let prompt = "";
 
+  // ============ ANALYZE SCRIPT ============
   if (action === "analyze_script") {
     prompt = `
-Kamu adalah asisten developer Roblox.
-Analisa dan perbaiki script berikut.
+⚠ WAJIB balas hanya dalam JSON VALID.
+⚠ TANPA teks tambahan, TANPA markdown, TANPA kode luar JSON.
 
-⚠ WAJIB balas dalam format JSON valid saja tanpa teks tambahan.
-Contoh:
-{
-  "updated_source": "print('abc')",
-  "message": "ok"
-}
+Perbaiki script Roblox berikut jika perlu:
 
-Script:
+Nama: ${name}
+Path: ${path}
+
+Source:
 ${source}
-`;
-  } else if (action === "scan_folder") {
-    prompt = `
-Ini kumpulan script Roblox. Ringkas dan temukan potensi error.
 
-Kembalikan JSON:
+Format balasan:
+{
+  "updated_source": "print(\\"...\\" )",
+  "message": "..."
+}
+`;
+  }
+
+  // ============ SCAN FOLDER ============
+  else if (action === "scan_folder") {
+    prompt = `
+⚠ WAJIB balas dalam JSON VALID.
+
+Ini kumpulan script Roblox.
+Berikan ringkasan dan potensi error.
+
+Format balasan:
 {
   "message": "...",
   "suggestions": "..."
 }
 
 Jumlah script: ${scripts?.length}
-Nama pertama: ${scripts?.[0]?.name}
+Contoh nama script: ${scripts?.[0]?.name}
 `;
-  } else if (action === "create_file") {
+  }
+
+  // ============ CREATE FILE ============
+  else if (action === "create_file") {
     prompt = `
-Buat script Roblox berdasarkan deskripsi berikut:
+⚠ WAJIB balas hanya dalam JSON VALID.
+⚠ TANPA markdown, TANPA teks luar JSON.
 
-${description}
+Buatkan 1 script Roblox sesuai deskripsi berikut:
 
-Kembalikan JSON:
+"${description}"
+
+Format balasan:
 {
-  "generated_source": "..."
+  "generated_source": "print(\\"Halo bro\\")"
 }
 `;
-  } else {
+  }
+
+  else {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
 
   try {
-    const openaiRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 2000,
-          temperature: 0,
-          response_format: { type: "json_object" },
-        }),
-      }
-    );
+    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 2000,
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
 
     const data = await openaiRes.json();
 
@@ -85,27 +101,25 @@ Kembalikan JSON:
 
     if (!raw) {
       return NextResponse.json({
-        error: "OpenAI returned empty",
-        rawOpenAI: data,
+        error: "Empty response from OpenAI",
+        openaiRaw: data
       });
     }
 
     try {
       const parsed = JSON.parse(raw);
       return NextResponse.json(parsed);
-    } catch (err) {
+    } catch {
       return NextResponse.json({
-        message: "Raw OpenAI response (parsing failed)",
-        raw,
+        error: "Failed to parse JSON",
+        rawResponse: raw
       });
     }
+
   } catch (err) {
-    return NextResponse.json(
-      {
-        error: "Server crash",
-        details: err,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      error: "Server error",
+      details: err
+    }, { status: 500 });
   }
 }
