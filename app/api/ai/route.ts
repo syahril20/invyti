@@ -6,7 +6,6 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || "supersecret123";
 
 const memory =
-  // @ts-ignore
   globalThis.__UNIFIED_AI_MEMORY__ || (globalThis.__UNIFIED_AI_MEMORY__ = {});
 
 function getHistory(userId: string) {
@@ -28,55 +27,66 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { message, source, description, scripts, userId = "default" } = body;
+  const { message, description, scripts, userId = "default" } = body;
 
-  if (!message && !description) {
-    return NextResponse.json({ error: "Message or description required" }, { status: 400 });
+  const userMsg = message || description;
+  if (!userMsg) {
+    return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
-  // Build system prompt
-  const systemPrompt = `
-You are a specialized AI for Roblox development. Always respond with valid JSON.
-Supported modes: chat, analyze, autoclass, fix, generate.
-If scripts are provided, analyze them and return fixes if needed in "fixes" array.
-When returning files, include: name, path, type, source.
-When returning fixes, include: name, path, old_source, fixed_source, reason.
+  // Save user message FIRST
+  pushHistory(userId, "user", userMsg);
 
-Example output JSON:
+  // ===== SYSTEM PROMPT =====
+  const systemPrompt = `
+You are a Roblox development AI. 
+Always reply in valid JSON ONLY.
+
+Output format example:
 {
-  "mode": "autoclass",
+  "mode": "chat | analyze | autoclass | fix | generate",
   "message": "...",
   "files": [...],
   "fixes": [...]
 }
+  `;
 
-Make sure JSON is parseable.
-`;
+  // ===== BUILD MESSAGES =====
+  const savedHistory = getHistory(userId);
 
-  // Save user message (for history)
-  const userMsg = message || description || "request";
-  pushHistory(userId, "user", userMsg);
-
-  // If scripts are provided, add an additional user message with their content
-  const messages = [
+  const messages: any[] = [
     { role: "system", content: systemPrompt },
-    ...getHistory(userId)
+    ...savedHistory
   ];
 
+  // If client sends scripts (for auto-fix analysis)
   if (Array.isArray(scripts) && scripts.length > 0) {
-    // include scripts in manageable chunks
-    const scriptsJson = JSON.stringify(scripts.map(s => ({ name: s.name, path: s.path, class: s.class, source: s.source })));
-    // if huge, truncate
-    const trimmed = scriptsJson.length > 12000 ? scriptsJson.slice(0, 12000) + "...(TRUNCATED)" : scriptsJson;
-    messages.push({ role: "user", content: "PROJECT_SCRIPTS_JSON: " + trimmed });
+    const scriptsJson = JSON.stringify(
+      scripts.map(s => ({
+        name: s.name,
+        path: s.path,
+        class: s.class,
+        source: s.source
+      }))
+    );
+
+    const trimmed =
+      scriptsJson.length > 12000
+        ? scriptsJson.slice(0, 12000) + "...(TRUNCATED)"
+        : scriptsJson;
+
+    messages.push({
+      role: "user",
+      content: "PROJECT_SCRIPTS_JSON: " + trimmed
+    });
   }
 
-  // Call OpenAI
+  // ===== CALL OPENAI =====
   const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
       model: "gpt-4.1-mini",
@@ -87,23 +97,22 @@ Make sure JSON is parseable.
   const data = await openaiRes.json();
   const content = data?.choices?.[0]?.message?.content || "{}";
 
-  // Save assistant reply into history
+  // Save assistant reply
   pushHistory(userId, "assistant", content);
 
-  // Try to parse JSON
+  // ===== PARSE JSON =====
   try {
-    const parsed = JSON.parse(content);
-    return NextResponse.json(parsed);
-  } catch (err) {
-    // fallback: try to extract JSON block from content
-    const maybe = content.match(/\{[\s\S]*\}$/m);
+    return NextResponse.json(JSON.parse(content));
+  } catch {
+    // fallback extract
+    const maybe = content.match(/\{[\s\S]*\}/m);
     if (maybe) {
       try {
         return NextResponse.json(JSON.parse(maybe[0]));
       } catch {}
     }
     return NextResponse.json({
-      error: "Invalid JSON returned from AI",
+      error: "Invalid JSON returned by AI",
       raw: content
     });
   }
