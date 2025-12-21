@@ -35,3 +35,23 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Laravel specific
+/laravel-admin/vendor/
+/laravel-admin/node_modules/
+/laravel-admin/public/hot
+/laravel-admin/public/storage
+/laravel-admin/public/build
+/laravel-admin/storage/*.key
+/laravel-admin/.env
+/laravel-admin/.env.backup
+/laravel-admin/.phpunit.result.cache
+/laravel-admin/Homestead.json
+/laravel-admin/Homestead.yaml
+/laravel-admin/auth.json
+/laravel-admin/npm-debug.log
+/laravel-admin/yarn-error.log
+/laravel-admin/.fleet
+/laravel-admin/.idea
+/laravel-admin/.vscode
+
