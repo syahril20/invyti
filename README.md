@@ -4,11 +4,44 @@ TailAdmin is a free and open-source admin dashboard template built on **Next.js 
 
 ![TailAdmin - Next.js Dashboard Preview](./banner.png)
 
+## 🎉 NEW: Laravel Version Available!
+
+We've now created a **PHP Laravel version** of TailAdmin! If you prefer working with Laravel instead of Next.js, check out the Laravel implementation in the `laravel-admin/` directory.
+
+- **Next.js Version**: Modern React-based SPA with SSR
+- **Laravel Version**: Traditional server-side rendered PHP application
+
+Both versions share the same beautiful UI and feature set!
+
+## Quick Start
+
+### Next.js Version
+```bash
+npm install
+npm run dev
+```
+
+### Laravel Version
+```bash
+cd laravel-admin
+composer install
+npm install
+php artisan migrate
+npm run build
+php artisan serve
+```
+
+See detailed installation instructions below for each version.
+
+---
+
+## Next.js Version
+
 With TailAdmin Next.js, you get access to all the necessary dashboard UI components, elements, and pages required to build a high-quality and complete dashboard or admin panel. Whether you're building a dashboard or admin panel for a complex web application or a simple website. 
 
 TailAdmin utilizes the powerful features of **Next.js 15** and common features of Next.js such as server-side rendering (SSR), static site generation (SSG), and seamless API route integration. Combined with the advancements of **React 19** and the robustness of **TypeScript**, TailAdmin is the perfect solution to help get your project up and running quickly.
 
-## Overview
+### Overview
 
 TailAdmin provides essential UI components and layouts for building feature-rich, data-driven admin dashboards and control panels. It's built on:
 
@@ -32,15 +65,16 @@ TailAdmin provides essential UI components and layouts for building feature-rich
 - [HTML Version](https://github.com/TailAdmin/tailadmin-free-tailwind-dashboard-template)
 - [React Version](https://github.com/TailAdmin/free-react-tailwind-admin-dashboard)
 - [Vue.js Version](https://github.com/TailAdmin/vue-tailwind-admin-dashboard)
+- **[Laravel Version](./laravel-admin/)** - NEW! 🎉
 
-## Installation
+### Installation
 
-### Prerequisites
+#### Prerequisites
 To get started with TailAdmin, ensure you have the following prerequisites installed and set up:
 
 - Node.js 18.x or later (recommended to use Node.js 20.x or later)
 
-### Cloning the Repository
+#### Cloning the Repository
 Clone the repository using the following command:
 
 ```bash
@@ -64,7 +98,7 @@ git clone https://github.com/TailAdmin/free-nextjs-admin-dashboard.git
     yarn dev
     ```
 
-## Components
+### Components
 
 TailAdmin is a pre-designed starting point for building a web-based dashboard using Next.js and Tailwind CSS. The template includes:
 
@@ -77,6 +111,41 @@ TailAdmin is a pre-designed starting point for building a web-based dashboard us
 - Can't forget Dark Mode 🕶️
 
 All components are built with React and styled using Tailwind CSS for easy customization.
+
+---
+
+## Laravel Version
+
+For those who prefer traditional server-side PHP applications, we've created a complete Laravel version of TailAdmin.
+
+### Features
+- Built with Laravel 11.x
+- Styled with Tailwind CSS V4
+- Authentication with Laravel Breeze
+- Dark mode support
+- Interactive charts and calendar
+- Fully responsive design
+
+### Installation
+
+See [laravel-admin/README-LARAVEL.md](./laravel-admin/README-LARAVEL.md) for detailed Laravel installation instructions.
+
+Quick start:
+```bash
+cd laravel-admin
+composer install
+npm install
+php artisan key:generate
+php artisan migrate
+npm run build
+php artisan serve
+```
+
+Test user credentials:
+- Email: admin@example.com
+- Password: password123
+
+---
 
 ## Feature Comparison
 
@@ -102,6 +171,7 @@ To learn more about pro version features and pricing, visit our [pricing page](h
 - Upgraded to Next v15.2.3 for [CVE-2025-29927](https://nextjs.org/blog/cve-2025-29927) concerns
 - Included overrides vectormap for packages to prevent peer dependency errors during installation.
 - Migrated from react-flatpickr to flatpickr package for React 19 support
+- **Added Laravel version** - Complete PHP Laravel implementation
 
 ### Version 2.0.1 - [February 27, 2025]
 
